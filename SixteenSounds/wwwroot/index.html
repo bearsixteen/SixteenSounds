@@ -6,234 +6,320 @@
     <style>
         @font-face {
             font-family: "Satoshi";
-            src: url("./assets/fonts/Satoshi-Black.woff2") format("woff2"); /* Sprawdź ścieżkę! */
+            src: url("./assets/fonts/Satoshi-Black.woff2") format("woff2");
             font-weight: 400;
         }
-
-        .header-logo {
-            width: 800px;
-            margin-bottom: 20px;
-            clip-path: inset(40% 0% 40% 0%);
-            position: relative;
-            bottom: 170px;
-        }
-
-        .background-container {
-            width: 100%;
-            height: 200px; /* Zwiększyłem nieco dla lepszego efektu */
-            overflow: hidden;
-            position: relative;
-        }
-
-        .background-video {
-            position: fixed; /* Wideo "pływa" za treścią */
-            right: 0;
-            bottom: 0;
-            min-width: 100%;
-            min-height: 100%;
-            z-index: -1; /* Wysyła wideo na sam spód */
-            object-fit: cover;
-            opacity: 0.4; /* Lekkie przyciemnienie, żeby napisy były czytelne */
-        }
-
-        /* Styl dla kontenera, jeśli chcesz, żeby wideo było tylko w jednym miejscu,
-        ale powyższy sposób na tło całej strony jest częściej stosowany */
 
         body {
             background-color: #130f0a;
             color: white;
             padding: 20px;
+            font-family: 'Satoshi', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
         }
 
-        .sample-card {
-            background: #1e1e1e;
-            padding: 15px;
-            margin-bottom: 10px;
+        .background-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            z-index: -1;
+            object-fit: cover;
+            opacity: 0.3;
+        }
+
+        .header-logo {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+            clip-path: inset(40% 0% 40% 0%);
+        }
+
+        #auth-section, .upload-section {
+            background: rgba(37, 37, 37, 0.9);
+            padding: 20px;
             border-radius: 8px;
-            border: 1px solid #333;
+            margin-bottom: 20px;
+            border: 1px solid #1db954;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .upload-section {
+            border-style: dashed;
+        }
+
+        input {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            width: calc(100% - 22px);
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
         }
 
         button {
             background: #1db954;
             border: none;
-            padding: 10px;
+            padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
             color: white;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+            button:hover {
+                background: #1ed760;
+                transform: scale(1.02);
+            }
+
+        #logout-btn {
+            background: #444;
+            margin-bottom: 20px;
+        }
+
+        .sample-card {
+            background: rgba(30, 30, 30, 0.9);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            width: 100%;
+            max-width: 600px;
         }
 
         .delete-btn {
-            background: #e91e63; /* Wyrazisty róż/czerwony */
-            color: white;
-            border: none;
+            background: #e91e63;
             padding: 5px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.3s;
         }
 
             .delete-btn:hover {
                 background: #c2185b;
-                transform: scale(1.05);
             }
 
-        .upload-section {
-            background: #252525;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border: 1px dashed #1db954;
-            position: relative;
-            bottom: 300px;
+        #samples-list {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-            .upload-section input {
-                display: block;
-                margin: 10px 0;
-                padding: 8px;
-                width: 100%;
-                max-width: 300px;
-                background: #333;
-                color: white;
-                border: 1px solid #444;
-            }
+        a {
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <video class="background-video" autoplay loop muted playsinline>
         <source src="./assets/vid/moje_wideo.mp4" type="video/mp4" />
     </video>
+
     <img src="./assets/img/logo.png" alt="SixteenSounds Logo" class="header-logo">
-    <div class="upload-section">
+
+    <button id="logout-btn" onclick="logout()" style="display: none;">Wyloguj się</button>
+
+    <div id="auth-section">
+        <div id="login-form">
+            <h2>Logowanie</h2>
+            <input type="email" id="loginEmail" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Hasło">
+            <button onclick="login()">Zaloguj się</button>
+            <p>Nie masz konta? <a onclick="toggleAuth('register')" style="color: #1db954;">Zarejestruj się</a></p>
+            <p><a onclick="toggleAuth('reset')" style="color: #e91e63; font-size: 0.8em;">Zapomniałem hasła</a></p>
+        </div>
+
+        <div id="reset-form" style="display: none;">
+            <h2>Resetowanie hasła</h2>
+            <input type="email" id="resetEmail" placeholder="Wpisz swój Email">
+            <input type="password" id="resetNewPassword" placeholder="Nowe hasło">
+            <button onclick="resetPassword()">Zmień hasło</button>
+            <p><a onclick="toggleAuth('login')" style="color: #1db954;">Wróć do logowania</a></p>
+        </div>
+
+        <div id="register-form" style="display: none;">
+            <h2>Rejestracja</h2>
+            <input type="text" id="regUsername" placeholder="Nazwa użytkownika">
+            <input type="email" id="regEmail" placeholder="Email">
+            <input type="password" id="regPassword" placeholder="Hasło">
+            <button onclick="register()">Stwórz konto</button>
+            <p>Masz już konto? <a onclick="toggleAuth('login')" style="color: #1db954;">Zaloguj się</a></p>
+        </div>
+    </div>
+
+    <div class="upload-section" id="upload-container" style="display: none;">
         <h2>Dodaj nowy sampel</h2>
         <input type="text" id="newName" placeholder="Nazwa sampla">
         <input type="text" id="newCategory" placeholder="Kategoria">
         <input type="file" id="newFile" accept=".mp3,.wav,.ogg">
         <button onclick="uploadSample()">Wyślij na serwer</button>
     </div>
-    <div id="samples-list">Ładowanie sampli...</div>
+
+    <div id="samples-list"></div>
 
     <script>
-        async function loadSamples() {
-            try {
-                // 1. Pobieramy dane z Twojego API
-                const response = await fetch('/api/Sample');
-                const samples = await response.json();
+        // Funkcja do przełączania widoków (Login / Register / Reset)
+        function toggleAuth(view) {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const resetForm = document.getElementById('reset-form');
 
-                const listElement = document.getElementById('samples-list');
-                listElement.innerHTML = ''; // Czyścimy napis "Ładowanie..."
+            loginForm.style.display = "none";
+            registerForm.style.display = "none";
+            resetForm.style.display = "none";
 
-                // 2. Tworzymy kartę dla każdego sampla
-                samples.forEach(sample => {
-                    const card = document.createElement('div');
-                    card.className = 'sample-card';
-                    card.innerHTML = `
-                        <h3>${sample.name}</h3>
-                        <p>Kategoria: ${sample.category}</p>
-                        <audio controls>
-                            <source src="${encodeURI(sample.fileUrl)}" type="audio/mpeg">
-                            Twoja przeglądarka nie wspiera odtwarzacza.
-                        </audio>
-                    `;
-                    listElement.appendChild(card);
-                });
-            } catch (error) {
-                console.error("Błąd ładowania:", error);
-                document.getElementById('samples-list').innerText = "Nie udało się załadować bitów.";
-            }
+            if (view === 'login') loginForm.style.display = "block";
+            if (view === 'register') registerForm.style.display = "block";
+            if (view === 'reset') resetForm.style.display = "block";
         }
 
-        // Uruchom funkcję od razu po wczytaniu strony
-        async function loadSamples() {
+        async function resetPassword() {
+            const email = document.getElementById('resetEmail').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
             try {
-                const response = await fetch('/api/Sample');
-                const samples = await response.json();
-
-                const listElement = document.getElementById('samples-list');
-                listElement.innerHTML = '';
-
-                samples.forEach(sample => {
-                    const card = document.createElement('div');
-                    card.className = 'sample-card';
-                    card.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3>${sample.name}</h3>
-                            <button class="delete-btn" onclick="deleteSample(${sample.id})">Usuń</button>
-                        </div>
-                        <p>Kategoria: ${sample.category}</p>
-                        <audio controls>
-                            <source src="${sample.fileUrl}" type="audio/mpeg">
-                        </audio>
-                    `;
-                    listElement.appendChild(card);
+                const response = await fetch('/api/Auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, newPassword: newPassword })
                 });
-            } catch (error) {
-                console.error("Błąd ładowania:", error);
-            }
-        }
-
-        // NOWA FUNKCJA DO USUWANIA
-        async function deleteSample(id) {
-            if (!confirm("Czy na pewno chcesz usunąć ten sampel?")) return;
-
-            try {
-                const response = await fetch(`/api/Sample/${id}`, {
-                    method: 'DELETE'
-                });
-
+                const message = await response.text();
                 if (response.ok) {
-                    alert("Sampel usunięty!");
-                    loadSamples(); // Odświeżamy listę po usunięciu
+                    alert(message);
+                    toggleAuth('login');
                 } else {
-                    alert("Błąd podczas usuwania.");
+                    alert("Błąd: " + message);
                 }
-            } catch (error) {
-                console.error("Błąd:", error);
+            } catch (err) { console.error("Błąd resetu:", err); }
+        }
+
+        function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const authSection = document.getElementById('auth-section');
+            const uploadSection = document.getElementById('upload-container');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            if (isLoggedIn) {
+                authSection.style.display = 'none';
+                uploadSection.style.display = 'block';
+                logoutBtn.style.display = 'block';
+            } else {
+                authSection.style.display = 'block';
+                uploadSection.style.display = 'none';
+                logoutBtn.style.display = 'none';
             }
         }
 
-        loadSamples();
+        function logout() {
+            localStorage.clear();
+            location.reload();
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const response = await fetch('/api/Auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('isLoggedIn', 'true');
+                    checkLoginStatus();
+                    loadSamples();
+                } else { alert(data.message || "Błąd logowania"); }
+            } catch (err) { alert("Błąd serwera przy logowaniu."); }
+        }
+
+        async function register() {
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const response = await fetch('/api/Auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+            if (response.ok) {
+                alert("Zarejestrowano! Zaloguj się.");
+                toggleAuth('login');
+            } else { alert("Błąd rejestracji."); }
+        }
+
+        async function loadSamples() {
+            const list = document.getElementById('samples-list');
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            if (!isLoggedIn) { list.innerHTML = ''; return; }
+
+            try {
+                const response = await fetch('/api/Sample');
+                if (!response.ok) throw new Error("Problem z serwerem");
+                const samples = await response.json();
+                list.innerHTML = '';
+                samples.forEach(sample => {
+                    const card = document.createElement('div');
+                    card.className = 'sample-card';
+                    card.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3>${sample.name}</h3>
+                                <button class="delete-btn" onclick="deleteSample(${sample.id})">Usuń</button>
+                            </div>
+                            <p>Kategoria: ${sample.category}</p>
+                            <audio controls style="width: 100%;">
+                                <source src="${sample.fileUrl}" type="audio/mpeg">
+                            </audio>`;
+                    list.appendChild(card);
+                });
+            } catch (err) {
+                if (isLoggedIn) list.innerText = "Nie udało się załadować Twoich sampli.";
+            }
+        }
 
         async function uploadSample() {
-            const name = document.getElementById('newName').value;
-            const category = document.getElementById('newCategory').value;
-            const fileInput = document.getElementById('newFile');
-
-            if (!fileInput.files[0] || !name || !category) {
-                alert("Wypełnij wszystkie pola i wybierz plik!");
-                return;
-            }
-
-            // FormData to specjalny obiekt, który pakuje plik i tekst w jedną paczkę
+            const token = localStorage.getItem('token');
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            formData.append('name', name);
-            formData.append('category', category);
-            formData.append('userId', 1); // Na razie na sztywno jako Ty
+            formData.append('file', document.getElementById('newFile').files[0]);
+            formData.append('name', document.getElementById('newName').value);
+            formData.append('category', document.getElementById('newCategory').value);
 
-            try {
-                const response = await fetch('/api/Sample/upload', {
-                    method: 'POST',
-                    body: formData // Nie ustawiamy nagłówka Content-Type, przeglądarka zrobi to sama!
-                });
+            const response = await fetch('/api/Sample/upload', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
 
-                if (response.ok) {
-                    alert("Wgrano pomyślnie!");
-                    // Czyścimy pola po wysyłce
-                    document.getElementById('newName').value = '';
-                    document.getElementById('newCategory').value = '';
-                    fileInput.value = '';
-
-                    loadSamples(); // Odświeżamy listę, żeby zobaczyć nowy bit!
-                } else {
-                    const error = await response.text();
-                    alert("Błąd: " + error);
-                }
-            } catch (err) {
-                console.error("Błąd wysyłki:", err);
-            }
+            if (response.ok) {
+                alert("Wgrano!");
+                loadSamples();
+            } else { alert("Błąd uploadu."); }
         }
+
+        async function deleteSample(id) {
+            if (!confirm("Usunąć?")) return;
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/Sample/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) loadSamples();
+            else alert("Błąd przy usuwaniu.");
+        }
+
+        window.onload = () => {
+            checkLoginStatus();
+            loadSamples();
+        };
     </script>
 </body>
 </html>

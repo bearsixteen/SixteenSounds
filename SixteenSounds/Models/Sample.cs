@@ -8,6 +8,8 @@ namespace SixteenSounds.Models
         public string Name { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
+
+        public string Path { get; set; } = string.Empty; // Ścieżka do pliku na serwerze
         public int UserId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
@@ -20,3 +22,4 @@ namespace SixteenSounds.Models
         public bool IsPublic { get; set; } = true;
     }
 }
+

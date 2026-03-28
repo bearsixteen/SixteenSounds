@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SixteenSounds.Data;
 using SixteenSounds.Models;
 
 namespace SixteenSounds.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -41,6 +43,34 @@ namespace SixteenSounds.Controllers
 
             return Ok("Konto stworzone pomyślnie.");
         }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto request)
+        {
+            // Szukamy użytkownika po mailu
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+            if (user == null)
+            {
+                return BadRequest("Użytkownik o podanym adresie nie istnieje.");
+            }
+
+            // Hashujemy nowe hasło biblioteką BCrypt
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok("Hasło zostało pomyślnie zmienione.");
+        }
+
+        // Ta klasa musi być w tym samym pliku na dole lub w folderze DTO
+        public class ResetPasswordDto
+        {
+            public string Email { get; set; }
+            public string NewPassword { get; set; }
+        }
+
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto request)

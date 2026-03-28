@@ -1,126 +1,121 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SixteenSounds.Data;
+using SixteenSounds.DTO;
 using SixteenSounds.Models;
-using Microsoft.OpenApi.Models;
+using System.Security.Claims;
+using static SixteenSounds.Controllers.AuthController;
 
 namespace SixteenSounds.Controllers
 {
-    [Route("api/[controller]")] // Adres URL: api/Sample
-    [ApiController] // Automatyczna walidacja modeli
+    [Authorize] // Domyślnie wszystko wymaga logowania
+    [ApiController]
+    [Route("api/[controller]")]
     public class SampleController : ControllerBase
     {
         private readonly SixteenSoundsDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public SampleController(SixteenSoundsDbContext context)
+        public SampleController(SixteenSoundsDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
-        // POBIERANIE LISTY SAMPLI
+        [AllowAnonymous] // Każdy może przeglądać listę
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Sample>>> GetSamples(string? category = null)
+        public async Task<IActionResult> GetSamples()
         {
-            var query = _context.Samples.AsQueryable();
-
-            if (!string.IsNullOrEmpty(category))
-            {
-                query = query.Where(s => s.Category == category);
-            }
-
-            var samples = await query.ToListAsync();
-
-            // Dynamiczne tworzenie adresu URL (np. http://localhost:5159)
+            var samples = await _context.Samples.ToListAsync();
             var baseUrl = $"{Request.Scheme}://{Request.Host}";
 
-            foreach (var sample in samples)
-            {
-                sample.FileUrl = $"{baseUrl}/samples/{sample.FileName}";
-            }
+            var result = samples.Select(s => new {
+                s.Id,
+                s.Name,
+                s.Category,
+                FileUrl = $"{baseUrl}/samples/{Path.GetFileName(s.FileName)}"
+            });
 
-            return Ok(samples);
+            return Ok(result);
         }
 
-        // WGRYWANIE NOWEGO PLIKU
         [HttpPost("upload")]
-        [Consumes("multipart/form-data")] // Wymagane dla Swaggera przy IFormFile
-        public async Task<IActionResult> UploadSample(
-            IFormFile file,
-            [FromForm] string name,
-            [FromForm] string category,
-            [FromForm] int userId)
+        public async Task<IActionResult> UploadSample([FromForm] SampleDto dto, IFormFile file)
         {
-            // 1. Walidacja formatu
-            var allowedExtensions = new[] { ".mp3", ".wav", ".ogg" };
-            var extension = Path.GetExtension(file.FileName).ToLower();
-            if (!allowedExtensions.Contains(extension))
-                return BadRequest("Niedozwolony format pliku. Akceptujemy tylko .mp3, .wav, .ogg");
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return Unauthorized();
+            int currentUserId = int.Parse(userIdClaim.Value);
 
-            // 2. Walidacja rozmiaru (15MB)
-            long maxFileSize = 15 * 1024 * 1024;
-            if (file.Length > maxFileSize)
-                return BadRequest("Plik jest za duży. Maksymalny rozmiar to 15MB.");
+            if (file == null || file.Length == 0)
+                return BadRequest("Plik jest pusty lub nie został przesłany.");
 
-            // 3. Czyszczenie nazwy pliku (Twoja nowa logika "Safe Name")
-            var rawFileName = Path.GetFileNameWithoutExtension(file.FileName);
-            var safeFileName = rawFileName
-                .Replace(" ", "-")  // Spacja -> Myślnik
-                .Replace("@", "")   // Usuń @
-                .Replace("#", "")   // Usuń #
-                .Replace(".", "-"); // Kropka wewnątrz nazwy -> Myślnik
+            var folderPath = Path.Combine(_env.WebRootPath, "samples");
+            if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
 
-            // Ścieżka do folderu wwwroot/samples
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "samples");
-            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+            var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+            var filePath = Path.Combine(folderPath, fileName);
 
-            // Generujemy unikalną nazwę z GUID
-            var uniqueFileName = $"{Guid.NewGuid()}_{safeFileName}{extension}";
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-            // Zapis fizycznego pliku na dysku
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            // Zapis informacji do bazy danych
             var sample = new Sample
             {
-                Name = name,
-                Category = category,
-                FileName = uniqueFileName,
-                UserId = userId,
-                CreatedAt = DateTime.Now
+                Name = dto.Name,
+                Category = "General",
+                FileName = filePath, // Upewnij się, że w Sample.cs masz FileName
+                CreatedAt = DateTime.UtcNow,
+                UserId = currentUserId
             };
 
             _context.Samples.Add(sample);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Sampel dodany pomyślnie!", fileName = uniqueFileName });
+            return Ok("Wgrano pomyślnie!");
         }
 
-        // USUWANIE SAMPLA I PLIKU
+        [AllowAnonymous] // KLUCZOWA ZMIANA: Pozwalamy niezalogowanym zresetować hasło
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+            if (user == null)
+            {
+                return BadRequest("Użytkownik o podanym adresie nie istnieje.");
+            }
+
+            // Hashujemy nowe hasło
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+
+            return Ok("Hasło zostało pomyślnie zmienione. Możesz się zalogować.");
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSample(int id)
         {
             var sample = await _context.Samples.FindAsync(id);
-            if (sample == null) return NotFound("Nie znaleziono takiego sampla w bazie.");
+            if (sample == null) return NotFound();
 
-            // 1. Ścieżka do pliku na dysku
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "samples", sample.FileName);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null) return Unauthorized();
+            int currentUserId = int.Parse(userIdClaim.Value);
 
-            // 2. Fizyczne usuwanie pliku z folderu
-            if (System.IO.File.Exists(filePath))
-            {
-                System.IO.File.Delete(filePath);
-            }
+            if (sample.UserId != currentUserId)
+                return Forbid();
 
-            // 3. Usuwanie rekordu z bazy danych
+            if (System.IO.File.Exists(sample.FileName))
+                System.IO.File.Delete(sample.FileName);
+
             _context.Samples.Remove(sample);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = $"Sampel o ID {id} został usunięty z bazy i z dysku." });
+            return Ok("Usunięto pomyślnie.");
         }
     }
 }
